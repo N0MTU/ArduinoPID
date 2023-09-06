@@ -1,3 +1,5 @@
+#!/bin/bash
+
 declare -i EndMin=180                                                  #define end of sensing period (min), 120min=2h of sensing
 declare -i WaitSec=1                                           #length of wait between Sensor sampleing (sec)
 declare -i VideoLengthMin=240                                           #length of video clips (Min)
