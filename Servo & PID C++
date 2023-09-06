@@ -1,0 +1,95 @@
+declare -i EndMin=180                                                  #define end of sensing period (min), 120min=2h of sensing
+declare -i WaitSec=1                                           #length of wait between Sensor sampleing (sec)
+declare -i VideoLengthMin=240                                           #length of video clips (Min)
+ 
+ 
+#conversion funciton
+VideoConvert(){
+        sudo MP4Box -add $1.h264 $1.mp4          #convert to mp4
+        sudo rm $1.h264                                        
+#remove leftover copy
+}
+ 
+ShutdownTool(){
+        sudo umount /dev/sda1
+        echo "Shutting down now"
+        #sleep 2                                                                             #give time to escape or see any errors
+        sudo shutdown now                                                     #shut down pi, unmounitning usb drive
+        
+}
+ 
+USBTool(){
+        fileN=$(ls /dev/sd* 2>/dev/null | grep /dev/sda1 )     #check for usb, suppress error if not present
+        if [ "${fileN}" = "/dev/sda1" ]; then                          #if usb present
+               echo "USB"
+               outloc="/media/usb"                                                  #direcotry for output
+               fileN=$(ls /dev/sd* | grep sda1)                       #redundent?
+               sudo mkdir ${outloc}                                                 
+               sudo mount ${fileN} ${outloc} -o rw,umask=000  #mount usb
+               echo "setup"
+               sudo cp -r /mnt/Media/. ${outloc}                      #coppy videos to usb
+               echo "coppied"
+               sudo rm /mnt/Media/*                                                 #remov  videos form pi
+               echo "USB Done"
+               ShutdownTool
+        fi
+}
+ 
+ 
+ 
+#setup & conversion
+echo "program running"
+gpio mode 0 in
+VidLenSec=$(( $VideoLengthMin * 30 )) #multiply by 30 so that when video length min = 1, it records 30 second video without implementing float variables.
+8.	VidLenMSec=$(( $VidLenSec * 1000 ))
+9.	EndSec=$(( $EndMin * 60 ))
+declare -i Loop=0
+ 
+ 
+#Main loop
+echo "Entering Main loop"
+sudo mkdir -p /mnt/Media
+while [[ $Loop -le $EndSec ]]                                          #2nd number is the number of clips you will record
+do
+        USBTool
+        
+        # Sensor check
+        Sensor=$(gpio read 1)                                                 #read sensor
+        echo "loop: $Loop | PIR State: $Sensor"
+        if [ $Sensor  = 1 ]                                                   #if pir is detecting motion
+        then
+               echo "Activity Detected"
+               FileName=$(date +"/mnt/Media/RecordingPIR%d-%b-%Y_%H-%M_$Loop")                                                      #set filename
+               sudo raspivid -w 1280 -h 720 -fps 10 -n -a 1024 -a 8 -o $FileName.h264 -t $VidLenMSec             #Record video
+               VideoConvert $FileName &                                      #clean up files
+               Loop=$(( $Loop + VidLenSec - $WaitSec ))       #remove if not limiting on real time
+        fi
+        
+        
+        Loop=$(( $Loop + $WaitSec ))                                   #itterate loop
+        sleep $WaitSec                                         #wait till next sample
+done
+
+Servo Start.py
+import RPi.GPIO as GPIO
+from time import sleep
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(11, GPIO.OUT)
+
+sleep(4)
+servo=GPIO.PWM(11,50)
+servo.start(0)
+servo.ChangeDutyCycle(4)     #left -90 degrees pos
+sleep(0.3)
+servo.ChangeDutyCycle(9)     #neutral pos
+sleep(0.3)
+servo.ChangeDutyCycle(4)     #right +90 degree pos
+sleep(0.3)
+servo.ChangeDutyCycle(8)     #left -90 degrees pos
+sleep(0.3)
+servo.ChangeDutyCycle(4)     #neutral pos
+sleep(0.3)
+servo.ChangeDutyCycle(8)     #right +90 degrees pos
+sleep(0.3)
+servo.stop()
+GPIO.cleanup()
